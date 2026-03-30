@@ -59,7 +59,8 @@ jobs:
           cat test.log | go-junit-report > report.xml
 
       - name: Publish test results (UI)
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        continue-on-error: true
+        if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         uses: dorny/test-reporter@v1
         with:
           name: Go Tests
