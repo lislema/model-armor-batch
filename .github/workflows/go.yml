@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
   security-events: write
 
 env:
@@ -58,8 +59,8 @@ jobs:
           cat test.log | go-junit-report > report.xml
 
       - name: Publish test results (UI)
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: dorny/test-reporter@v1
-        if: always()
         with:
           name: Go Tests
           path: report.xml
