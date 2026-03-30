@@ -159,7 +159,7 @@ jobs:
 
       - name: Install CycloneDX SBOM tool
         run: |
-          go install github.com/CycloneDX/cyclonedx-gomod@v1.6.0
+          go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@v1.6.0
 
       - name: Generate SBOM
         run: |
