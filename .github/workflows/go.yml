@@ -48,13 +48,29 @@ jobs:
       - name: Build
         run: go build -v ./...
 
-      # ---------------- TEST ----------------
-      - name: Run tests with coverage
+      # ---------------- TEST + REPORT ----------------
+      - name: Install go-junit-report
+        run: go install github.com/jstemmer/go-junit-report@latest
+
+      - name: Run tests and generate report
+        run: |
+          go test -v ./... 2>&1 | tee test.log
+          cat test.log | go-junit-report > report.xml
+
+      - name: Publish test results (UI)
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Go Tests
+          path: report.xml
+          reporter: java-junit
+
+      # ---------------- COVERAGE ----------------
+      - name: Generate coverage
         run: |
           go test -coverprofile=coverage.out ./...
           go tool cover -func=coverage.out
 
-      # ---------------- COVERAGE ENFORCEMENT ----------------
       - name: Enforce coverage threshold
         run: |
           COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
@@ -96,12 +112,12 @@ jobs:
         run: |
           gosec -severity high -confidence high ./...
 
-      # ---------------- SARIF GENERATION ----------------
+      # ---------------- SARIF REPORT ----------------
       - name: Generate SARIF report
         run: |
           gosec -no-fail -fmt sarif -out results.sarif ./...
 
-      # ---------------- SARIF UPLOAD ----------------
+      # ---------------- UPLOAD SARIF ----------------
       - name: Upload SARIF to GitHub Security
         if: github.event_name == 'push' && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
