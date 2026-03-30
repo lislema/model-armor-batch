@@ -1,0 +1,74 @@
+# ---------------- GO ----------------
+
+# Binaries
+model_armor_batch
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Coverage
+coverage.out
+*.coverprofile
+
+# Go workspace
+go.work
+go.work.sum
+
+# ---------------- BUILD / TEMP ----------------
+
+# Temp files
+*.tmp
+*.temp
+*.swp
+*.swo
+
+# Output files (your app)
+*.jsonl
+
+# ---------------- BASH / SCRIPTS ----------------
+
+# Shell artifacts
+*.sh~
+*.bash_history
+
+# ---------------- OS ----------------
+
+# macOS
+.DS_Store
+
+# ---------------- EDITORS ----------------
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# ---------------- LOGS ----------------
+
+*.log
+
+# ---------------- ENV / SECRETS ----------------
+
+.env
+.env.*
+*.env
+
+# ---------------- CI ----------------
+
+# Coverage reports
+coverage.html
+
+# ---------------- MISC ----------------
+
+# Dependency directories (if ever used)
+vendor/
+
+# Local binaries
+bin/
+dist/
