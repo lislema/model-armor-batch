@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: read
+  security-events: write
+
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
@@ -94,7 +98,8 @@ jobs:
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -fmt sarif -out results.sarif ./...
 
-      - name: Upload SARIF to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: results.sarif
+      - name: Upload SARIF
+  if: github.event_name == 'push'
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: results.sarif
