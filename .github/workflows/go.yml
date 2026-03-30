@@ -51,7 +51,7 @@ jobs:
 
       # ---------------- TEST + REPORT ----------------
       - name: Install go-junit-report
-        run: go install github.com/jstemmer/go-junit-report@latest
+        run: go install github.com/jstemmer/go-junit-report@v1.0.0
 
       - name: Run tests and generate report
         run: |
@@ -85,42 +85,107 @@ jobs:
             echo "✅ Coverage meets threshold"
           fi
 
-  # ---------------- SECURITY ----------------
+  # ---------------- SECURITY: GOSEC ----------------
   security:
     name: Security Scan (gosec)
     runs-on: ubuntu-latest
     needs: build-test
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.22.5'
 
-      - name: Install dependencies
-        run: go mod tidy
+      - run: go mod tidy
 
-      # ---------------- INSTALL GOSEC ----------------
       - name: Install gosec (pinned)
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@v2.22.0
+        run: go install github.com/securego/gosec/v2/cmd/gosec@v2.22.0
 
-      # ---------------- GOSEC ENFORCEMENT ----------------
       - name: Run gosec (fail on HIGH)
-        run: |
-          gosec -severity high -confidence high ./...
+        run: gosec -severity high -confidence high ./...
 
-      # ---------------- SARIF REPORT ----------------
       - name: Generate SARIF report
-        run: |
-          gosec -no-fail -fmt sarif -out results.sarif ./...
+        run: gosec -no-fail -fmt sarif -out results.sarif ./...
 
-      # ---------------- UPLOAD SARIF ----------------
-      - name: Upload SARIF to GitHub Security
+      - name: Upload SARIF
         if: github.event_name == 'push' && hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+  # ---------------- SECURITY: GOVULNCHECK ----------------
+  govulncheck:
+    name: Go Vulnerability Scan (govulncheck)
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.22.5'
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+      - name: Run govulncheck
+        run: govulncheck ./...
+
+  # ---------------- SECRETS SCAN ----------------
+  secrets:
+    name: Secrets Scan (gitleaks)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+
+  # ---------------- SBOM ----------------
+  sbom:
+    name: SBOM (CycloneDX)
+    runs-on: ubuntu-latest
+    needs: build-test
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.22.5'
+
+      - name: Install CycloneDX SBOM tool
+        run: |
+          go install github.com/CycloneDX/cyclonedx-gomod@v1.6.0
+
+      - name: Generate SBOM
+        run: |
+          cyclonedx-gomod mod -json -output bom.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: bom.json
+
+  # ---------------- DEPENDENCY DIFF ----------------
+  dependency-diff:
+    name: Dependency Diff
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: Show dependency changes
+        run: |
+          echo "=== go.mod diff ==="
+          git diff origin/${{ github.base_ref }} -- go.mod || true
+          echo "=== go.sum diff ==="
+          git diff origin/${{ github.base_ref }} -- go.sum || true
