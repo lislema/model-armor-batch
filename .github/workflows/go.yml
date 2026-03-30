@@ -1,15 +1,14 @@
-```yaml
 name: Go DevSecOps CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
-
-# ---------------- BUILD + TEST + LINT ----------------
+    branches: ["main"]
 
 jobs:
+
+  # ---------------- BUILD + TEST + LINT ----------------
   build-test:
     name: Build, Lint, Test
     runs-on: ubuntu-latest
@@ -17,86 +16,88 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [ '1.21', '1.22', 'stable' ]
+        go-version: ['1.21', '1.22', 'stable']
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ matrix.go-version }}
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
 
-    - name: Show Go version
-      run: go version
+      - name: Show Go version
+        run: go version
 
-    - name: Install dependencies
-      run: go mod tidy
+      - name: Install dependencies
+        run: go mod tidy
 
-    # ---------------- LINT ----------------
-    - name: Run golangci-lint
-      uses: golangci/golangci-lint-action@v6
-      with:
-        version: latest
-        args: --timeout=5m
+      # ---------------- LINT ----------------
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
+          args: --timeout=5m
 
-    # ---------------- BUILD ----------------
-    - name: Build
-      run: go build -v ./...
+      # ---------------- BUILD ----------------
+      - name: Build
+        run: go build -v ./...
 
-    # ---------------- TEST ----------------
-    - name: Run tests with coverage
-      run: |
-        go test -coverprofile=coverage.out ./...
-        go tool cover -func=coverage.out
+      # ---------------- TEST ----------------
+      - name: Run tests with coverage
+        run: |
+          go test -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out
 
-    # ---------------- COVERAGE ENFORCEMENT ----------------
-    - name: Enforce coverage threshold
-      run: |
-        COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
-        echo "Total coverage: $COVERAGE%"
+      # ---------------- COVERAGE ENFORCEMENT ----------------
+      - name: Install bc
+        run: sudo apt-get update && sudo apt-get install -y bc
 
-        THRESHOLD=60
+      - name: Enforce coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: $COVERAGE%"
+          THRESHOLD=60
+          if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
+            echo "❌ Coverage below threshold ($THRESHOLD%)"
+            exit 1
+          else
+            echo "✅ Coverage meets threshold"
+          fi
 
-        if (( $(echo "$COVERAGE < $THRESHOLD" | bc -l) )); then
-          echo "❌ Coverage below threshold ($THRESHOLD%)"
-          exit 1
-        else
-          echo "✅ Coverage meets threshold"
-        fi
-
-# ---------------- SECURITY ----------------
-
+  # ---------------- SECURITY ----------------
   security:
     name: Security Scan (gosec)
     runs-on: ubuntu-latest
 
+    needs: build-test   # ensures pipeline order
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: stable
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
 
-    - name: Install dependencies
-      run: go mod tidy
+      - name: Install dependencies
+        run: go mod tidy
 
-    - name: Run gosec (high severity only)
-      uses: securego/gosec@master
-      with:
-        args: -severity high -confidence high ./...
+      # FIXED: use tagged version
+      - name: Run gosec (high severity only)
+        uses: securego/gosec@v2.22.0
+        with:
+          args: -severity high -confidence high ./...
 
-    # ---------------- OPTIONAL: SARIF OUTPUT ----------------
-    - name: Generate SARIF report
-      run: |
-        go install github.com/securego/gosec/v2/cmd/gosec@latest
-        gosec -fmt sarif -out results.sarif ./...
+      # ---------------- SARIF OUTPUT ----------------
+      - name: Generate SARIF report
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -fmt sarif -out results.sarif ./...
 
-    - name: Upload SARIF to GitHub Security
-      uses: github/codeql-action/upload-sarif@v3
-      with:
-        sarif_file: results.sarif
-```
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
