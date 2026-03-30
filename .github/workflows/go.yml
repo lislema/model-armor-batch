@@ -86,10 +86,14 @@ jobs:
       - name: Install dependencies
         run: go mod tidy
 
+      # ---------------- INSTALL GOSEC ----------------
+      - name: Install gosec (pinned)
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.22.0
+
       # ---------------- GOSEC ENFORCEMENT ----------------
       - name: Run gosec (fail on HIGH)
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -severity high -confidence high ./...
 
       # ---------------- SARIF GENERATION ----------------
